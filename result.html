@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试结果 | 博弈论 × MBTI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    /* 【动态背景】极淡几何图形，opacity 约 3%，为学术感服务 */
+    .bg-geo { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; opacity: 0.04; }
+    .bg-geo svg { position: absolute; width: 100%; height: 100%; }
+    .bg-geo line, .bg-geo polygon { stroke: #e5e7eb; fill: none; stroke-width: 0.5; }
+    .bg-geo.mode-structured .shape { animation: drift-slow 60s linear infinite; }
+    .bg-geo.mode-explore .shape { animation: drift-random 45s ease-in-out infinite; }
+    .bg-geo.mode-ground .shape { animation: drift-horizontal 50s linear infinite; }
+    .bg-geo.mode-adapt .shape { animation: drift-float 55s ease-in-out infinite; }
+    @keyframes drift-slow { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(2%, 1%) rotate(1deg); } }
+    @keyframes drift-random { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-1%, 2%) scale(1.02); } 66% { transform: translate(2%, -1%) scale(0.98); } }
+    @keyframes drift-horizontal { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3%); } }
+    @keyframes drift-float { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1%, -1%); } 75% { transform: translate(-1%, 1%); } }
+    /* 【弹窗】轴点击说明 */
+    .axis-popover { position: fixed; z-index: 50; max-width: 320px; padding: 1rem; background: rgba(17, 24, 39, 0.98); border: 1px solid #374151; font-size: 0.8rem; line-height: 1.5; color: #9ca3af; box-shadow: 0 4px 20px rgba(0,0,0,0.5); animation: popover-in 0.2s ease-out; }
+    @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    /* 【反馈弹窗】 */
+    .feedback-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .feedback-modal { background: #1f2937; border: 1px solid #374151; border-radius: 8px; max-width: 400px; width: 100%; padding: 1.5rem; animation: popover-in 0.2s ease-out; }
+    .feedback-modal h4 { color: #e5e7eb; font-size: 0.95rem; margin-bottom: 1rem; }
+    .feedback-modal label { color: #9ca3af; font-size: 0.85rem; display: block; margin-bottom: 0.5rem; }
+    .feedback-modal textarea { width: 100%; min-height: 72px; padding: 0.5rem; background: #111827; border: 1px solid #374151; border-radius: 4px; color: #e5e7eb; font-size: 0.85rem; resize: vertical; font-family: inherit; }
+    .feedback-modal .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .feedback-modal .btn-opt { padding: 0.4rem 0.8rem; background: #374151; border: 1px solid #4b5563; color: #e5e7eb; font-size: 0.85rem; border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+    .feedback-modal .btn-opt:hover { background: #4b5563; }
+    .feedback-modal .btn-opt.selected { background: #4b5563; border-color: #6b7280; }
+    .feedback-modal .thank-msg { color: #9ca3af; font-size: 0.9rem; text-align: center; padding: 1rem 0; }
+    /* 【结果对比弹窗】 */
+    .compare-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .compare-modal { background: #1f2937; border: 1px solid #374151; border-radius: 8px; max-width: 420px; width: 100%; padding: 1.5rem; animation: popover-in 0.2s ease-out; }
+    .compare-modal h4 { color: #e5e7eb; font-size: 0.95rem; margin-bottom: 1rem; }
+    .compare-row { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; color: #9ca3af; font-size: 0.85rem; }
+    .compare-row .label { color: #9ca3af; }
+    .compare-row .change { color: #a5b4fc; }
+    .compare-tagline { color: #9ca3af; font-size: 0.9rem; line-height: 1.6; text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #374151; }
+    /* 【双向进度条】 */
+    .dim-bar-track { background: #374151; height: 6px; border-radius: 3px; position: relative; overflow: visible; }
+    .dim-bar-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; background: #6b7280; transition: width 0.3s, left 0.3s; }
+    .dim-bar-wrap { cursor: pointer; }
+    .dim-bar-wrap:hover .dim-bar-fill { background: #9ca3af; }
+    /* 【折叠区块】 */
+    .detail-toggle { display: flex; align-items: center; justify-content: center; gap: 0.25rem; width: 100%; padding: 0.5rem; color: #9ca3af; font-size: 0.8rem; background: transparent; border: 1px dashed #374151; border-radius: 4px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+    .detail-toggle:hover { color: #9ca3af; border-color: #4b5563; }
+    .detail-toggle svg { transition: transform 0.2s; }
+    .detail-toggle.expanded svg { transform: rotate(180deg); }
+    /* 【结果页入场】淡入效果，避免过渡后突兀弹出 */
+    .result-content-reveal { opacity: 0; transition: opacity 0.6s ease-out; }
+    .result-content-reveal.result-visible { opacity: 1; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased relative">
+
+  <!-- 【动态背景】根据类型呈现不同运动模式：NJ 有序 / NP 发散 / SJ 平稳 / SP 浮动 -->
+  <div id="bgGeo" class="bg-geo">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+      <g class="shape"><line x1="0" y1="20" x2="100" y2="20"/><line x1="0" y1="40" x2="100" y2="40"/><line x1="0" y1="60" x2="100" y2="60"/><line x1="0" y1="80" x2="100" y2="80"/><line x1="20" y1="0" x2="20" y2="100"/><line x1="40" y1="0" x2="40" y2="100"/><line x1="60" y1="0" x2="60" y2="100"/><line x1="80" y1="0" x2="80" y2="100"/></g>
+      <g class="shape" transform="translate(10,10)"><polygon points="40,0 80,40 40,80 0,40"/></g>
+      <g class="shape" transform="translate(60,60)"><polygon points="20,0 40,20 20,40 0,20"/></g>
+    </svg>
+  </div>
+
+  <!-- 【对比上次结果】按钮，右上角固定，仅重测后显示 -->
+  <button id="compareBtn" type="button" class="hidden fixed top-4 right-4 z-40 px-4 py-2 text-xs text-gray-400 border border-gray-600 hover:border-gray-500 hover:text-gray-300 transition-colors rounded">
+    对比上次结果
+  </button>
+
+  <main id="resultMain" class="result-content-reveal relative z-10 min-h-screen flex flex-col items-center py-12 px-4 sm:py-16">
+    
+    <!-- 【专属符号】16 型几何化符号，置于 MBTI 上方 -->
+    <div id="typeSymbol" class="mb-4 w-16 h-16 text-gray-400 flex items-center justify-center">
+      <!-- 由 JS 注入 SVG -->
+    </div>
+
+    <!-- 【MBTI 结果】居中超大字号 -->
+    <div class="text-center mb-6">
+      <p class="text-gray-400 text-xs mb-1">你的博弈论人格类型</p>
+      <p id="mbtiResult" class="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tighter text-white">----</p>
+    </div>
+
+    <!-- 【维度与功能详情】直接展示，直观 -->
+    <section id="detailSection" class="w-full max-w-md mx-auto mb-10">
+      <!-- 【八功能得分】 -->
+      <div id="funcWrap" class="mb-8">
+        <p class="text-gray-400 text-xs text-center mb-4">八认知功能得分 · 基于你在各博弈情境中的选择倾向</p>
+        <div id="funcBars" class="space-y-2">
+          <!-- 由 JS 动态生成 8 个功能条 -->
+        </div>
+      </div>
+      <!-- 【四维人格倾向】 -->
+      <div id="barWrap" class="mb-4">
+        <p class="text-gray-400 text-xs text-center mb-4">四维人格倾向 · 进度条越靠哪侧则该倾向越强 · 点击查看解读</p>
+        <div id="dimBars" class="space-y-5">
+          <!-- 由 JS 动态生成 4 组双向条 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 【点击弹窗占位】 -->
+    <div id="axisPopover" class="axis-popover hidden"></div>
+
+    <!-- 【介绍摘要】 -->
+    <p id="mbtiIntro" class="max-w-xl text-gray-400 text-sm text-left mb-10 px-2 mx-auto"></p>
+
+    <!-- 【深度文字解读】可折叠，默认收起 -->
+    <section id="analysisSection" class="w-full max-w-2xl mb-12">
+      <button id="analysisToggle" type="button" class="detail-toggle mb-3" aria-expanded="false" aria-controls="analysisContent">
+        <span>深度文字解读</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="analysisContent" class="hidden" role="region">
+        <!-- 【认知功能剖析】 -->
+        <div class="mb-10">
+          <h3 class="text-gray-400 text-xs uppercase tracking-wider mb-4 text-center">认知功能剖析 (Cognitive Functions)</h3>
+          <div id="cognitiveFunctions" class="space-y-4 text-gray-400 text-sm leading-relaxed text-left"></div>
+        </div>
+        <!-- 【博弈策略总结】 -->
+        <div class="mb-10">
+          <h3 class="text-gray-400 text-xs uppercase tracking-wider mb-4 text-center">博弈策略总结 (Game Strategy Summary)</h3>
+          <p id="gameStrategy" class="text-gray-400 text-sm leading-relaxed text-left px-2 mb-6"></p>
+        </div>
+        <!-- 【潜在软肋】 -->
+        <div class="mb-4">
+          <h3 class="text-gray-400 text-xs uppercase tracking-wider mb-4 text-center">潜在软肋 (Blind Spots)</h3>
+          <p id="blindSpots" class="text-gray-400 text-sm leading-relaxed text-left px-2 mb-6"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 【彩蛋备注】极端得分时的幽默提示，仅有效结果显示 -->
+    <p id="easterEgg" class="text-gray-500 text-xs text-center mb-4 max-w-md mx-auto px-2 italic whitespace-pre-line"></p>
+
+    <!-- 【软性鼓励 · 重新测试】 -->
+    <p id="retestPrompt" class="text-gray-400 text-sm text-left mb-4 max-w-sm mx-auto px-2"></p>
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+      <a href="test.html" class="px-10 py-4 bg-gray-700 text-white hover:bg-gray-600 active:scale-95 active:opacity-90 transition-all duration-150 text-sm font-medium tracking-wide select-none">
+        重新测试
+      </a>
+      <button id="feedbackBtn" type="button" class="px-8 py-4 border border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300 active:scale-95 transition-all duration-150 text-sm font-medium tracking-wide">
+        你的反馈
+      </button>
+    </div>
+
+    <!-- 【反馈弹窗】 -->
+    <div id="feedbackOverlay" class="feedback-overlay hidden">
+      <div class="feedback-modal" role="dialog" aria-labelledby="feedbackTitle">
+        <h4 id="feedbackTitle">你的反馈</h4>
+        <div id="feedbackForm">
+          <label>这个测试的结果符合你的自我认知吗？</label>
+          <div class="btn-group" role="group" aria-label="符合程度">
+            <button type="button" class="btn-opt" data-match="yes">是</button>
+            <button type="button" class="btn-opt" data-match="partial">部分</button>
+            <button type="button" class="btn-opt" data-match="no">否</button>
+          </div>
+          <label>最让你惊讶的一点是什么？<span class="text-gray-600">（选填）</span></label>
+          <textarea id="feedbackSurprise" placeholder="例如：没想到自己在公平类博弈中会这么在意…" rows="3"></textarea>
+          <div class="flex justify-end gap-2 mt-4">
+            <button type="button" id="feedbackCancel" class="btn-opt">取消</button>
+            <button type="button" id="feedbackSubmit" class="btn-opt px-6 bg-gray-600">提交</button>
+          </div>
+        </div>
+        <div id="feedbackThank" class="thank-msg hidden">感谢你的反馈，这对我们优化测试很有帮助。</div>
+      </div>
+    </div>
+
+    <!-- 【结果对比弹窗】 -->
+    <div id="compareOverlay" class="compare-overlay hidden">
+      <div class="compare-modal" role="dialog" aria-labelledby="compareTitle">
+        <h4 id="compareTitle">与上次结果对比</h4>
+        <div id="compareContent"></div>
+        <p class="compare-tagline">你的决策风格在不同情境下会流动，这正是人类的丰富之处。</p>
+        <div class="flex justify-end mt-4">
+          <button type="button" id="compareClose" class="px-4 py-2 text-sm text-gray-400 hover:text-gray-300 border border-gray-600 rounded">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 【页脚免责声明】 -->
+    <footer class="mt-16 text-gray-400 text-xs text-center px-4 max-w-md">
+      本测试非专业心理或人格评估工具，结果仅供娱乐与自我探索，不构成任何临床或职业建议。
+    </footer>
+  </main>
+
+  <script>
+    // ==================== 【数据配置】可后期增删改 ====================
+
+    const validTypes = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP'];
+
+    const mbtiDescriptions = {
+      INTJ:'战略家。面对复杂的博弈局势，你习惯推演终局，在混沌中构建系统性最优解。对你而言，每一次选择都是蓝图的一笔，情绪和噪声只是干扰项。',
+      INTP:'逻辑炼金士。规则对你而言不是束缚，而是等待被拆解的谜题。你享受在概念的迷宫中游走，直到找到那个自洽的、优雅的答案。',
+      ENTJ:'统帅。在资源争夺中，你快速锁定要害，用果断的执行力扫清障碍。对你来说，停滞比失败更不可接受。',
+      ENTP:'规则颠覆者。你总在寻找系统的漏洞和新的可能性。对你而言，博弈不仅关乎胜负，更是一场智识的冒险，每一次交锋都是思维的狂欢。',
+      INFJ:'倡导者。你以共感为眼，在纷繁博弈中捕捉无形的人际脉络。让理性服务于洞察，在暗流下筑起共识的航道。',
+      INFP:'调停者。你守护内心深处的价值坐标，纵使偏离策略的最优解，也要让每一次选择与真实的自己同频共振。',
+      ENFJ:'引领者。你善于唤醒沉睡的共识，将分散的意向熔铸成共同的火焰。在关系与方向之间，你是那道桥梁，也是那股风。',
+      ENFP:'发现者。你拥抱无限的可能，在规则边缘自如起舞。让策略充满弹性，每一次博弈都是一场新的发现，每一个同行者都是潜在的伙伴。',
+      ISTJ:'秩序家。你信赖秩序的引力，在混沌中坚持按计划前行。让规则成为坐标系，指引每一步都落在确定的刻度上。',
+      ISFJ:'守护者。你默默织补团队的裂隙，以短期利益的让步，换取合作火焰的延续。让每一次付出，都成为凝聚的针脚。',
+      ESTJ:'执行者。你务实而果决，在资源争夺中快速锁定高效路径。用执行力将规则落地，让每一步都踏出回响，让混沌归于秩序。',
+      ESFJ:'协调者。你敏锐感知群体的温度，在分歧中搭建共识的桥梁。让合作不只在妥协中达成，更在共识中自然生长。',
+      ISTP:'应变家。你冷静观察，在动态中寻找支点。不拘泥于既定策略，随时准备以灵活的应对化解危机，力求每一次出手都恰到好处。',
+      ISFP:'探索者。你跟随内心的指引，在每个当下做出忠于自我的选择。让感受与直觉在情境中自然交融，不违心，不强求。',
+      ESTP:'行动派。你敏锐捕捉稍纵即逝的时机，在变化中果断出手。让每一次博弈都成为即兴的杰作，用行动重新定义可能。',
+      ESFP:'体验家。你活在当下的氛围里，让每一次选择都充满生命力与温度。体验本身就是最好的答案，而你，正是那个让体验发生的人。'
+    };
+
+    // 【轴线点击说明】按维度与偏向生成，结合本测试 24 题博弈情境
+    const axisDescriptions = {
+      e_i: { E: '在需要主动发起、协调共识的情境中（例如协作类博弈），你的选择更常体现出外倾(E)的典型策略。', I: '在需要独立推演、先思后动的情境中（例如序贯推演类博弈），你的选择更常体现出内倾(I)的典型策略。' },
+      s_n: { S: '在面对可观察、可验证的参照信息时（例如信号类博弈），你的选择更常体现出实感(S)的典型策略。', N: '在需要预判走势、捕捉可能性的情境中（例如猜心类博弈），你的选择更常体现出直觉(N)的典型策略。' },
+      t_f: { T: '在涉及资源分配、得失计算的情境中（例如分配类博弈），你的选择更常体现出思考(T)的典型策略。', F: '在涉及公平感知、价值判断的情境中（例如公平类博弈），你的选择更常体现出情感(F)的典型策略。' },
+      j_p: { J: '在需要按序推进、依规执行的情境中（例如多阶段博弈），你的选择更常体现出判断(J)的典型策略。', P: '在需要随机应变、保持开放的情境中（例如高不确定性博弈），你的选择更常体现出感知(P)的典型策略。' }
+    };
+
+    // 【认知功能】每型 4 个：主导、辅助、第三、劣势。结合本测试 24 题博弈情境。
+    const cognitiveFunctionsData = {
+      INTJ: [
+        { name: 'Ni', label: '内倾直觉', role: '主导', desc: '在需要洞察模式、预判长远走势的情境中（例如多阶段博弈），你擅长透过表象捕捉内在脉络。' },
+        { name: 'Te', label: '外倾思考', role: '辅助', desc: '在涉及资源调配、规则制定的情境中（例如分配类博弈），你以效率和逻辑组织决策，善于逆向推演。' },
+        { name: 'Fi', label: '内倾情感', role: '第三', desc: '在触及公平底线、价值取舍的情境中（例如公平类博弈），你会基于内在价值坐标做出不同选择。' },
+        { name: 'Se', label: '外倾实感', role: '劣势', desc: '在需要快速响应、捕捉即时信号的情境中（例如高不确定性博弈），你或因专注长远推演而忽略眼前信息。' }
+      ],
+      INTP: [
+        { name: 'Ti', label: '内倾思考', role: '主导', desc: '在需要逻辑自洽、推演均衡的情境中（例如多阶段博弈），你反复检验前提的稳固性，追求内在逻辑的完备。' },
+        { name: 'Ne', label: '外倾直觉', role: '辅助', desc: '在需要捕捉可能、探索边界的情境中（例如猜心类博弈），你善于发现非常规解，对反例与边缘情况敏感。' },
+        { name: 'Si', label: '内倾实感', role: '第三', desc: '在涉及协作信任、风险权衡的情境中（例如协作类博弈），你可能会参考过往经验，但抽象推演时常将其搁置。' },
+        { name: 'Fe', label: '外倾情感', role: '劣势', desc: '在需要人际协调、共识达成的博弈中（例如协调类博弈），你可能做出逻辑上最优但关系上失分的决策。' }
+      ],
+      ENTJ: [
+        { name: 'Te', label: '外倾思考', role: '主导', desc: '在需要主导局面、追求效率的情境中（例如主导型博弈），你果断制定规则，推动局面朝目标演进。' },
+        { name: 'Ni', label: '内倾直觉', role: '辅助', desc: '在需要长期战略、方向判断的情境中（例如多阶段博弈），你能快速整合信息，捕捉关键脉络。' },
+        { name: 'Se', label: '外倾实感', role: '第三', desc: '在需要捕捉变量、即时响应的情境中（例如高不确定性博弈），你能敏锐感知关键信号，灵活调用。' },
+        { name: 'Fi', label: '内倾情感', role: '劣势', desc: '在触及公平底线、价值取舍的情境中（例如公平类博弈），你可能因目标导向而忽略关系成本与内在价值。' }
+      ],
+      ENTP: [
+        { name: 'Ne', label: '外倾直觉', role: '主导', desc: '在需要探索可能性、推演多重走向的情境中（例如猜心类博弈），你善于在多条假设路径中来回穿梭，不断拓展策略空间。' },
+        { name: 'Ti', label: '内倾思考', role: '辅助', desc: '在需要逻辑检验、推演论证的情境中（例如多阶段博弈），你用逻辑框架梳理可能性，在论证过程中保持开放性。' },
+        { name: 'Fe', label: '外倾情感', role: '第三', desc: '在需要感知他人、协调共识的情境中（例如协调类博弈），你能觉察氛围并调整策略，但不如主导功能持续调用。' },
+        { name: 'Si', label: '内倾实感', role: '劣势', desc: '在需要参照过往经验、依循流程的情境中（例如序贯推演类博弈），你或因优先探索可能性而暂缓调用既有模式。' }
+      ],
+      INFJ: [
+        { name: 'Ni', label: '内倾直觉', role: '主导', desc: '在共识与冲突并存的情境中（例如信任类博弈），你善于洞察多方立场的交汇点与分歧点，预判长期走势。' },
+        { name: 'Fe', label: '外倾情感', role: '辅助', desc: '在需要协调利益、寻求共识的情境中（例如协调类博弈），你在理性框架下感知群体温度，推动多方调和。' },
+        { name: 'Ti', label: '内倾思考', role: '第三', desc: '在涉及公平取舍、分配判断的情境中（例如公平类博弈），你用内在逻辑支撑价值判断，但在高情感场景中常让位于共识导向。' },
+        { name: 'Se', label: '外倾实感', role: '劣势', desc: '在需要快速响应、捕捉即时信号的情境中（例如高不确定性博弈），你可能因沉浸于长远推演而延迟对当下的回应。' }
+      ],
+      INFP: [
+        { name: 'Fi', label: '内倾情感', role: '主导', desc: '在触及核心信念、价值取舍的情境中（例如公平类博弈），你可能为守护内在价值而偏离纯策略最优解。' },
+        { name: 'Ne', label: '外倾直觉', role: '辅助', desc: '在需要探索可能、保持开放的情境中（例如协作类博弈），你善于发现多种合作路径，寻找与内心同频的方案。' },
+        { name: 'Si', label: '内倾实感', role: '第三', desc: '在需要参照过往经验、评估风险的情境中（例如协作类博弈），你可能会调用既有模式，但当其与内在价值冲突时，常让位于主导功能。' },
+        { name: 'Te', label: '外倾思考', role: '劣势', desc: '在需要量化执行、效率优先的情境中（例如分配类博弈），你可能因反复权衡价值是否一致而错失行动时机。' }
+      ],
+      ENFJ: [
+        { name: 'Fe', label: '外倾情感', role: '主导', desc: '在需要动员合作、协调共识的情境中（例如协作类博弈），你善于兼顾关系温度与目标达成，推动多方共同投入。' },
+        { name: 'Ni', label: '内倾直觉', role: '辅助', desc: '在涉及长期信任、人际格局的情境中（例如信任类博弈），你能洞察关系走向，预判合作与分歧的后续影响。' },
+        { name: 'Se', label: '外倾实感', role: '第三', desc: '在需要捕捉氛围、回应微妙信号的情境中（例如信号类博弈），你敏锐感知当下动态，辅助策略的即时调适。' },
+        { name: 'Ti', label: '内倾思考', role: '劣势', desc: '在纯逻辑推演、规则密集型情境中（例如分配类博弈），你可能因优先考量关系维度而暂缓调用严谨的逻辑框架。' }
+      ],
+      ENFP: [
+        { name: 'Ne', label: '外倾直觉', role: '主导', desc: '在需要探索可能、保持开放的情境中（例如猜心类博弈），你善于在多条路径间穿梭，让策略保持弹性与创造性。' },
+        { name: 'Fi', label: '内倾情感', role: '辅助', desc: '在触及核心信念、价值取舍的情境中（例如公平类博弈），你以内心的价值坐标筛选选项，拒绝与信念相悖的策略。' },
+        { name: 'Te', label: '外倾思考', role: '第三', desc: '在需要逻辑推演、量化决策的情境中（例如多阶段博弈），你能够调用逻辑框架，但更倾向于在行动中探索而非事先穷尽分析。' },
+        { name: 'Si', label: '内倾实感', role: '劣势', desc: '在需要精细执行、持久投入的情境中（例如多阶段博弈），你可能因优先探索新可能而暂缓调用既有经验与耐心。' }
+      ],
+      ISTJ: [
+        { name: 'Si', label: '内倾实感', role: '主导', desc: '在需要依托经验、建立稳定预期的情境中（例如协作信任类博弈），你注重规则的可预期性，倾向于调用过往有效模式。' },
+        { name: 'Te', label: '外倾思考', role: '辅助', desc: '在需要清晰标准、有序执行的情境中（例如分配类博弈），你偏好可验证的策略框架，以效率组织决策。' },
+        { name: 'Fi', label: '内倾情感', role: '第三', desc: '在触及原则底线、价值取舍的情境中（例如公平类博弈），你可能为守护内在准则而偏离常规最优路径。' },
+        { name: 'Ne', label: '外倾直觉', role: '劣势', desc: '在高度不确定、需探索多重可能的情境中（例如猜心类博弈），你可能因优先调用既有经验而暂缓探索新路径。' }
+      ],
+      ISFJ: [
+        { name: 'Si', label: '内倾实感', role: '主导', desc: '在需要维护关系、履行责任的情境中（例如协作信任类博弈），你重视过往经验与责任承诺，可能为维系长期关系而让渡短期利益。' },
+        { name: 'Fe', label: '外倾情感', role: '辅助', desc: '在需要感知他人、协调氛围的情境中（例如协调类博弈），你关注各方感受，倾向于寻求能让群体和谐的方案。' },
+        { name: 'Ti', label: '内倾思考', role: '第三', desc: '在需要理解规则、逻辑推演的情境中（例如多阶段博弈），你能够调用逻辑框架分析，但在情感卷入较深时，常让位于关系导向。' },
+        { name: 'Ne', label: '外倾直觉', role: '劣势', desc: '在高度不确定、需大胆想象的情境中（例如猜心类博弈），你可能因优先调用稳妥框架而暂缓探索非常规路径。' }
+      ],
+      ESTJ: [
+        { name: 'Te', label: '外倾思考', role: '主导', desc: '在需要务实高效、规则清晰的情境中（例如主导型博弈），你偏好明确框架下的最优执行，果断推动局面。' },
+        { name: 'Si', label: '内倾实感', role: '辅助', desc: '在需要参照经验、套用模式的情境中（例如信号类博弈），你依赖既有框架与已验证策略，快速做出判断。' },
+        { name: 'Ne', label: '外倾直觉', role: '第三', desc: '在需要探索备选、灵活调整的情境中（例如协作类博弈），你能够考虑多种可能，但更倾向于选择已经验证的路径。' },
+        { name: 'Fi', label: '内倾情感', role: '劣势', desc: '在触及公平底线、价值取舍的情境中（例如公平类博弈），你可能因优先调用效率导向的框架而暂缓考量关系成本与内在价值。' }
+      ],
+      ESFJ: [
+        { name: 'Fe', label: '外倾情感', role: '主导', desc: '在需要维护和谐、凝聚集体的情境中（例如协作类博弈），你重视互惠与合作，倾向于选择能让群体受益的方案。' },
+        { name: 'Si', label: '内倾实感', role: '辅助', desc: '在需要依托经验、建立信任的情境中（例如信任类博弈），你依赖过往社交模式，快速识别出已被验证有效的互动方式。' },
+        { name: 'Ne', label: '外倾直觉', role: '第三', desc: '在需要探索可能、设想变通的情境中（例如猜心类博弈），你能够构想不同路径，但常因顾虑他人反应而收敛探索范围。' },
+        { name: 'Ti', label: '内倾思考', role: '劣势', desc: '在纯逻辑推演、规则密集型情境中（例如分配类博弈），你可能因优先考量关系维度与"应该怎样"的道德感，而暂缓调用严谨的逻辑框架。' }
+      ],
+      ISTP: [
+        { name: 'Ti', label: '内倾思考', role: '主导', desc: '在需要拆解结构、寻找漏洞的情境中（例如拆解型博弈），你冷静分析规则内核，偏好灵活应对而非固守定式。' },
+        { name: 'Se', label: '外倾实感', role: '辅助', desc: '在需要捕捉变量、即时反应的情境中（例如对抗类博弈），你敏锐感知局势变化，迅速做出适应性调整。' },
+        { name: 'Ni', label: '内倾直觉', role: '第三', desc: '在需要预判走势、洞察趋势的情境中（例如信号类博弈），你能够感知长期方向，但更倾向于先观察再确认。' },
+        { name: 'Fe', label: '外倾情感', role: '劣势', desc: '在需要协调情感、表达立场的博弈中（例如协调类博弈），你可能因优先调用分析框架而暂缓调用情感协调的维度。' }
+      ],
+      ISFP: [
+        { name: 'Fi', label: '内倾情感', role: '主导', desc: '在需要忠于内心、依情境而变的情境中（例如对抗类博弈），你依据内在感受做出非标准选择，不被单一策略束缚。' },
+        { name: 'Se', label: '外倾实感', role: '辅助', desc: '在需要捕捉当下、即时回应的情境中（例如即时反应类博弈），你敏锐感知环境变量，做出贴合情境的即兴决策。' },
+        { name: 'Ni', label: '内倾直觉', role: '第三', desc: '在需要感知长期走势、整合趋势的情境中（例如多阶段博弈），你能够隐约捕捉方向感，但更倾向于跟随当下的真实反馈。' },
+        { name: 'Te', label: '外倾思考', role: '劣势', desc: '在需要系统规划、量化执行的情境中（例如分配类博弈），你可能因优先调用当下感受的框架而暂缓调用系统化策略。' }
+      ],
+      ESTP: [
+        { name: 'Se', label: '外倾实感', role: '主导', desc: '在需要行动导向、即时回应的情境中（例如对抗类博弈），你敏锐捕捉当下变量，快速调适策略以应对变化。' },
+        { name: 'Ti', label: '内倾思考', role: '辅助', desc: '在需要拆解局势、检验逻辑的情境中（例如拆解型博弈），你边行动边验证，用逻辑框架辅助实时决策。' },
+        { name: 'Fe', label: '外倾情感', role: '第三', desc: '在需要读取他人、影响氛围的情境中（例如信号类博弈），你能够感知对方反应并加以调用，在社交博弈中占据主动。' },
+        { name: 'Ni', label: '内倾直觉', role: '劣势', desc: '在需要长期预判、持续推演的情境中（例如多阶段博弈），你可能因优先调用即时反馈框架而暂缓整合长远趋势。' }
+      ],
+      ESFP: [
+        { name: 'Se', label: '外倾实感', role: '主导', desc: '在需要关注当下、回应氛围的情境中（例如对抗类博弈），你对现场信息高度敏感，善于根据即时变化做出调整。' },
+        { name: 'Fi', label: '内倾情感', role: '辅助', desc: '在需要价值判断、内心取舍的情境中（例如公平类博弈），你以内心的感受为坐标，回避与核心价值观相悖的路径。' },
+        { name: 'Te', label: '外倾思考', role: '第三', desc: '在需要理性分析、量化决策的情境中（例如分配类博弈），你能够调用逻辑框架，但可能因兴趣转移而暂缓深入推演。' },
+        { name: 'Ni', label: '内倾直觉', role: '劣势', desc: '在需要抽象推演、长期预判的情境中（例如多阶段博弈），你可能因优先调用当下可感的框架而暂缓整合长远走势。' }
+      ]
+    };
+
+    // 【博弈策略总结】基于本测试博弈情境概括
+    const gameStrategyData = {
+      INTJ:'你在多阶段博弈中常坚持逆向推演至最后阶段；在信任类博弈中，先释放合作信号，但一旦遭遇背叛会坚定反击。你对「可预测的长期均衡」有明确偏好，在分配类博弈中倾向于选择能最大化长期收益的方案。',
+      INTP:'你在猜心类博弈中会反复推演对方的可能策略，往往推演至共同知识的深层嵌套；在多阶段博弈中倾向于拆解到最后一轮再反向推导。这种模式可能导致你在需要即时决策的情境中延迟行动，但你似乎愿意为理论完备性承担这一成本。',
+      ENTJ:'在主导型博弈中，你倾向于从一开始就争取规则制定权或最大份额；在对抗类博弈中，一旦锁定目标会持续施加压力直至局面明朗。你善于将复杂局势简化为「谁掌控、谁执行」的二元框架，并据此快速决策。',
+      ENTP:'你在多均衡博弈中的选择经常切换，似乎享受在不同策略间游走的自由度；在协作类博弈中倾向于先试探对方反应再决定是否投入合作。当局面陷入僵持时，你更可能尝试非常规解而非固守均衡。',
+      INFJ:'在信任类博弈中，你倾向于先释放合作诚意，即使承担短期风险；在公共资源类博弈中，当察觉他人过度索取时，你可能会率先自我限制以维持长期平衡。你对「关系网络的长期健康」有持续的关注。',
+      INFP:'在公平类博弈中，你的接受阈值往往高于理性均衡，即使这意味着让渡利益；在信息不对称的博弈中，你倾向于选择诚实披露，即使隐瞒可能带来更大收益。内在价值坐标对你的决策有持续的主导作用。',
+      ENFJ:'在协调类博弈中，你倾向于主动发起共识、推动多方对齐；在公共品博弈中，你愿意在早期多投入以带动他人跟进。当合作出现裂痕时，你更可能选择沟通修复而非退出博弈。',
+      ENFP:'在信任类博弈中，你倾向于先尝试合作，若对方无回应会迅速切换策略；在猜心类博弈中，你的选择弹性较大，有时会因兴趣驱动而尝试非常规路径。你对「探索新可能」的热情高于「守住既有收益」。',
+      ISTJ:'在序贯博弈中，你倾向于严格按照既定规则执行，较少中途变卦；在涉及风险的博弈中，你会预设止损线并严格执行。你对「可重复、可验证」的策略有稳定偏好，一旦确认有效会持续调用。',
+      ISFJ:'在协作类博弈中，你倾向于选择能维护群体和谐的方案，即使这意味着个人收益较低；在志愿者困境中，当无人行动时，你可能会主动承担责任。你对「关系的可持续性」似乎比「单次收益」更敏感。',
+      ESTJ:'在分配类博弈中，你倾向于选择规则清晰、执行高效的方案；在委托-代理类博弈中，你会在规则框架内争取最大收益，对模糊地带缺乏耐心。你善于将复杂博弈拆解为「目标-执行」的线性流程。',
+      ESFJ:'在协调类博弈中，你重视各方感受，倾向于寻求能被广泛接受的方案；在信号类博弈中，你对人际互动中的微妙暗示敏感，并据此调整策略。你愿意为维护集体氛围而调整个人策略。',
+      ISTP:'在对抗类博弈中，你善于根据局势变化即时调整，较少固守预定策略；在拆解型博弈中，你会先观察规则漏洞再决定行动。你对「当下变量」的敏感度高于「长期推演」，倾向于边做边调整。',
+      ISFP:'在对抗类博弈中，你的选择往往随当下感受而变，有时会偏离常规策略；在公平类博弈中，你倾向于选择内心认同的方案，即使这意味着收益较低。情境中的真实感受对你的决策有直接影响。',
+      ESTP:'在即时反应类博弈中，你能快速捕捉关键变量并果断出手；在信号类博弈中，你倾向于关注当下可验证的信息，对抽象推演缺乏耐心。你的模式是：先行动，在行动中验证和调整。',
+      ESFP:'在对抗类博弈中，你的选择受当下氛围影响较大，有时会因体验驱动而选择非常规路径；在信号类博弈中，你对人际互动的即时反馈敏感，并据此调整策略。「当下的真实体验」是你决策的重要参照。'
+    };
+
+    // 【潜在软肋】基于劣势功能，结合本测试博弈情境
+    const blindSpotsData = {
+      INTJ:'基于 Se（劣势实感）：在「猜硬币」「美元拍卖」等需即时反应的博弈中，你可能因专注长远推演而忽略眼前信号，导致错失短期窗口或在细节上误判。',
+      INTP:'基于 Fe（劣势情感）：在「猎鹿」「志愿者困境」「性别战」等人际协调博弈中，你可能因追求逻辑最优而做出关系失分的决策，或因不擅动员而让合作机会流失。',
+      ENTJ:'基于 Fi（劣势情感）：在「最后通牒」「独裁者」「委托-代理」中，你可能因目标导向而忽视公平与关系成本，导致对方在后续博弈中选择退出合作。',
+      ENTP:'基于 Si（劣势实感）：在「美元拍卖」「旅行者困境」等需依赖经验与流程的博弈中，你可能因不拘小节而遗漏关键信息，或因难以从重复模式中提炼规律而重复犯错。',
+      INFJ:'基于 Se（劣势实感）：在「猜硬币」「斗鸡」「美元拍卖」等需快速反应的博弈中，你可能因沉浸于内在推演而滞后回应，让主动权和机会流向他人。',
+      INFP:'基于 Te（劣势思考）：在「海盗分金」「美元拍卖」等需量化执行的博弈中，你可能因反复权衡价值是否一致而错失行动时机，或在多人协调中因犹豫而失去话语权。',
+      ENFJ:'基于 Ti（劣势思考）：在「海盗分金」「蜈蚣博弈」等纯逻辑场景中，你可能因优先考量关系而偏离策略最优，或因忽略结构细节而做出感性误判。',
+      ENFP:'基于 Si（劣势实感）：在「美元拍卖」「讨价还价」等需精细执行与耐心的博弈中，你可能因兴趣转移而难以坚持到收益兑现，或因忽视经验而重复试错成本。',
+      ISTJ:'基于 Ne（劣势直觉）：在「选美博弈」「猜硬币」「少数派」等高度不确定的博弈中，你可能因偏好已知框架而错失非常规机会，或在需要灵活变通时显得保守。',
+      ISFJ:'基于 Ne（劣势直觉）：在「选美博弈」「少数派」等需大胆想象的博弈中，你可能因偏好稳妥而错过突破性路径，或因过度依赖经验而难以适应新情境。',
+      ESTJ:'基于 Fi（劣势情感）：在「最后通牒」「独裁者」「委托-代理」中，你可能因就事论事而忽视公平与关系，导致对方在后续博弈中缺乏合作意愿。',
+      ESFJ:'基于 Ti（劣势思考）：在「海盗分金」「蜈蚣博弈」等纯逻辑场景中，你可能因过度考虑「应该怎样」而偏离策略最优，或因忽视规则细节而误判局势。',
+      ISTP:'基于 Fe（劣势情感）：在「志愿者困境」「性别战」「猎鹿」等需协调情感的博弈中，你可能因不擅表达而难以凝聚他人，或在需要情感共鸣时显得疏离。',
+      ISFP:'基于 Te（劣势思考）：在「海盗分金」「美元拍卖」等需系统规划的博弈中，你可能因偏好当下体验而难以建立长期策略框架，或在需要量化执行时显得随意。',
+      ESTP:'基于 Ni（劣势直觉）：在「讨价还价」「消耗战」等需长期预判的博弈中，你可能因偏好即时反馈而难以坚持延迟满足，或在需要战略耐心时过早出手。',
+      ESFP:'基于 Ni（劣势直觉）：在「蜈蚣博弈」「讨价还价」等需抽象推演的博弈中，你可能因偏好具体可感而在复杂多步博弈中失去方向，或因缺乏长期预判而错失后续收益。'
+    };
+
+    // 【专属符号】16 型身份意象 SVG，Lucide 开源图标
+    const typeSymbols = {
+      INTJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 20a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="m12.474 5.943 1.567 5.34a1 1 0 0 0 1.75.328l2.616-3.402"/><path d="m20 9-3 9"/><path d="m5.594 8.209 2.615 3.403a1 1 0 0 0 1.75-.329l1.567-5.34"/><path d="M7 18 4 9"/><circle cx="12" cy="4" r="2"/><circle cx="20" cy="7" r="2"/><circle cx="4" cy="7" r="2"/></svg>',
+      INTP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>',
+      ENTJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>',
+      ENTP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>',
+      INFJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 12v6"/><path d="M4.077 10.615A1 1 0 0 0 5 12h14a1 1 0 0 0 .923-1.385l-3.077-7.384A2 2 0 0 0 15 2H9a2 2 0 0 0-1.846 1.23Z"/><path d="M8 20a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z"/></svg>',
+      INFP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M10.5 3 8 9l4 13 4-13-2.5-6"/><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z"/><path d="M2 9h20"/></svg>',
+      ENFJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M11 12h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 14"/><path d="m7 18 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 13 6 6"/></svg>',
+      ENFP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/><path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/><path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/><path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/></svg>',
+      ISTJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>',
+      ISFJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>',
+      ESTJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
+      ESFJ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762"/></svg>',
+      ISTP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>',
+      ISFP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m14.622 17.897-10.68-2.913"/><path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z"/><path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15"/></svg>',
+      ESTP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>',
+      ESFP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>'
+    };
+
+    // 【背景模式】NJ 有序 / NP 发散 / SJ 平稳 / SP 浮动
+    const bgModeByType = { INTJ:'structured',INTP:'explore',ENTJ:'structured',ENTP:'explore',INFJ:'structured',INFP:'explore',ENFJ:'structured',ENFP:'explore',ISTJ:'ground',ISFJ:'ground',ESTJ:'ground',ESFJ:'ground',ISTP:'adapt',ISFP:'adapt',ESTP:'adapt',ESFP:'adapt' };
+
+    // ==================== 【主逻辑】 ====================
+
+    const params = new URLSearchParams(window.location.search);
+    const mbti = (params.get('mbti') || '').toUpperCase();
+    const funcScores = {
+      Te: parseInt(params.get('Te'), 10) || 0,
+      Ti: parseInt(params.get('Ti'), 10) || 0,
+      Fe: parseInt(params.get('Fe'), 10) || 0,
+      Fi: parseInt(params.get('Fi'), 10) || 0,
+      Ne: parseInt(params.get('Ne'), 10) || 0,
+      Ni: parseInt(params.get('Ni'), 10) || 0,
+      Se: parseInt(params.get('Se'), 10) || 0,
+      Si: parseInt(params.get('Si'), 10) || 0
+    };
+    const scores = {
+      e_i: parseInt(params.get('e_i'), 10) || 0,
+      s_n: parseInt(params.get('s_n'), 10) || 0,
+      t_f: parseInt(params.get('t_f'), 10) || 0,
+      j_p: parseInt(params.get('j_p'), 10) || 0
+    };
+    const elapsedSec = parseInt(params.get('t'), 10) || 0;
+    const questionCount = parseInt(params.get('n'), 10) || 0;
+
+    const isValid = validTypes.includes(mbti);
+    if (!isValid) {
+      document.getElementById('detailSection').classList.add('hidden');
+      document.getElementById('analysisSection').classList.add('hidden');
+    }
+
+    // 【上次结果】用于「对比上次结果」，仅在重测后有数据
+    const LAST_RESULT_KEY = 'mbti_last_result';
+    let prevResult = null;
+    try {
+      prevResult = JSON.parse(localStorage.getItem(LAST_RESULT_KEY) || 'null');
+    } catch (_) {}
+    if (isValid) {
+      localStorage.setItem(LAST_RESULT_KEY, JSON.stringify({
+        mbti, ...scores, ...funcScores, ts: Date.now()
+      }));
+    }
+    const hasPrevResult = prevResult && prevResult.mbti && validTypes.includes(String(prevResult.mbti).toUpperCase());
+    const hasChanged = hasPrevResult && isValid && (
+      String(prevResult.mbti).toUpperCase() !== mbti ||
+      prevResult.t_f !== scores.t_f || prevResult.e_i !== scores.e_i ||
+      prevResult.s_n !== scores.s_n || prevResult.j_p !== scores.j_p
+    );
+    if (hasChanged) {
+      document.getElementById('compareBtn').classList.remove('hidden');
+    }
+
+    // 【八功能说明】点击功能条时显示
+    const funcDescriptions = {
+      Te: '在涉及资源分配、得失计算的情境中，你的选择更常体现出效率优先与理性计算，这是外倾思考(Te)的典型表现。',
+      Ti: '在需要逻辑推演、内在自洽的情境中，你偏好拆解结构与检验前提，这是内倾思考(Ti)的典型表现。',
+      Fe: '在需要协调共识、维护集体利益的情境中，你重视合作与和谐，这是外倾情感(Fe)的典型表现。',
+      Fi: '在触及公平底线、个人信念的情境中，你坚持内在价值坐标，这是内倾情感(Fi)的典型表现。',
+      Ne: '在需要探索可能、保持开放的情境中，你倾向于相信合作前景与非常规路径，这是外倾直觉(Ne)的典型表现。',
+      Ni: '在需要洞察模式、预判走势的情境中，你善于捕捉长期脉络与内在规律，这是内倾直觉(Ni)的典型表现。',
+      Se: '在需要即时响应、捕捉变量的情境中，你关注当下局势并快速调整，这是外倾实感(Se)的典型表现。',
+      Si: '在需要参照经验、建立稳定预期的情境中，你依赖已验证模式与可靠流程，这是内倾实感(Si)的典型表现。'
+    };
+    const popover = document.getElementById('axisPopover');
+
+    // 【渲染基础结果】
+    document.getElementById('mbtiResult').textContent = isValid ? mbti : '----';
+    document.getElementById('mbtiIntro').textContent = isValid ? mbtiDescriptions[mbti] : '请先完成测试页的题目，或通过首页重新开始。';
+
+    // 【专属符号】
+    document.getElementById('typeSymbol').innerHTML = isValid ? typeSymbols[mbti] : '';
+
+    // 【动态背景模式】
+    const bg = document.getElementById('bgGeo');
+    if (isValid) bg.classList.add('mode-' + bgModeByType[mbti]);
+
+    // 【八功能条形图】按得分从高到低排序，显示功能名与分数
+    const funcLabels = { Te:'外倾思考', Ti:'内倾思考', Fe:'外倾情感', Fi:'内倾情感', Ne:'外倾直觉', Ni:'内倾直觉', Se:'外倾实感', Si:'内倾实感' };
+    const funcOrder = Object.entries(funcScores).sort((a, b) => b[1] - a[1]);
+    const maxFunc = Math.max(1, ...Object.values(funcScores));
+    const funcBarsEl = document.getElementById('funcBars');
+    funcOrder.forEach(([key, val]) => {
+      const bar = document.createElement('div');
+      bar.className = 'func-bar-wrap cursor-pointer hover:opacity-90 transition-opacity';
+      bar.dataset.key = key;
+      const pct = maxFunc > 0 ? (val / maxFunc) * 100 : 0;
+      bar.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-gray-400 text-xs w-20 shrink-0">${key} ${funcLabels[key]}</span>
+          <div class="dim-bar-track flex-1 min-w-0 h-4">
+            <div class="dim-bar-fill rounded" style="width:${pct}%; left:0;"></div>
+          </div>
+          <span class="text-gray-400 text-xs w-6 text-right">${val}</span>
+        </div>
+      `;
+      bar.addEventListener('click', () => {
+        popover.textContent = funcDescriptions[key];
+        popover.classList.remove('hidden');
+        const rect = bar.getBoundingClientRect();
+        popover.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 330)) + 'px';
+        popover.style.top = Math.max(12, rect.top - 80) + 'px';
+      });
+      funcBarsEl.appendChild(bar);
+    });
+
+    // 【四组双向水平条形图】左端 labelB，右端 labelA，score>0 填充向右
+    const SCALE = 20;
+    const dims = [
+      { key: 'e_i', labelA: 'E 外倾', labelB: 'I 内倾' },
+      { key: 's_n', labelA: 'S 实感', labelB: 'N 直觉' },
+      { key: 't_f', labelA: 'T 思考', labelB: 'F 情感' },
+      { key: 'j_p', labelA: 'J 判断', labelB: 'P 感知' }
+    ];
+    const barsEl = document.getElementById('dimBars');
+
+    dims.forEach(d => {
+      const s = scores[d.key] || 0;
+      const pct = Math.min(100, Math.abs(s) / SCALE * 100);
+      const fillPct = s === 0 ? 0 : Math.max(4, pct / 2);
+      const toRight = s >= 0;
+      const bar = document.createElement('div');
+      bar.className = 'dim-bar-wrap';
+      bar.dataset.key = d.key;
+      bar.dataset.side = toRight ? 'A' : 'B';
+      bar.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="text-gray-400 text-xs w-16 text-right shrink-0">${d.labelB}</span>
+          <div class="dim-bar-track flex-1 min-w-0">
+            <div class="dim-bar-fill" style="
+              left: ${toRight ? '50%' : (50 - fillPct) + '%'};
+              width: ${fillPct}%;
+            "></div>
+          </div>
+          <span class="text-gray-400 text-xs w-16 text-left shrink-0">${d.labelA}</span>
+        </div>
+      `;
+      bar.addEventListener('click', () => {
+        const letter = bar.dataset.side === 'A' ? d.labelA.charAt(0) : d.labelB.charAt(0);
+        const text = axisDescriptions[d.key][letter];
+        popover.textContent = text;
+        popover.classList.remove('hidden');
+        const rect = bar.getBoundingClientRect();
+        const w = Math.min(320, window.innerWidth - 24);
+        popover.style.maxWidth = w + 'px';
+        popover.style.left = Math.max(12, Math.min(rect.left + rect.width / 2 - w / 2, window.innerWidth - w - 12)) + 'px';
+        popover.style.top = Math.max(12, rect.top - 100) + 'px';
+      });
+      barsEl.appendChild(bar);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!popover.contains(e.target) && !e.target.closest('.dim-bar-wrap') && !e.target.closest('.func-bar-wrap')) popover.classList.add('hidden');
+    });
+
+    // 【深度文字解读】折叠切换
+    const analysisToggle = document.getElementById('analysisToggle');
+    const analysisContent = document.getElementById('analysisContent');
+    analysisToggle.addEventListener('click', () => {
+      const isHidden = analysisContent.classList.toggle('hidden');
+      analysisToggle.classList.toggle('expanded', !isHidden);
+      analysisToggle.setAttribute('aria-expanded', !isHidden);
+    });
+
+    // 【认知功能】
+    const cfEl = document.getElementById('cognitiveFunctions');
+    if (isValid && cognitiveFunctionsData[mbti]) {
+      cfEl.innerHTML = cognitiveFunctionsData[mbti].map(f =>
+        `<div class="mb-4"><span class="text-gray-400">${f.name} (${f.label}, ${f.role})</span> — ${f.desc}</div>`
+      ).join('');
+    } else cfEl.innerHTML = '<p class="text-gray-400 text-left">完成测试后此处将展示认知功能剖析。</p>';
+
+    // 【博弈策略】与【潜在软肋】
+    document.getElementById('gameStrategy').textContent = isValid ? gameStrategyData[mbti] : '—';
+    document.getElementById('blindSpots').textContent = isValid ? blindSpotsData[mbti] : '—';
+
+    // 【软性鼓励】根据 T-F 倾向生成差异化重测提示
+    const tF = scores.t_f || 0;
+    const THRESHOLD = 3;
+    let retestText = '';
+    if (isValid) {
+      if (tF > THRESHOLD) {
+        retestText = '你本轮的选择更偏策略导向。想体验自己在价值维度会如何决策？不妨再测一次，探索你的完整决策光谱。';
+      } else if (tF < -THRESHOLD) {
+        retestText = '你本轮的选择更偏价值导向。想试试更理性的策略路径会带来什么不同？不妨再测一次，发现你的另一种可能。';
+      } else {
+        retestText = '你在策略与价值之间取得了平衡。想看看在其他情境下，这种平衡会如何变化？不妨再测一次。';
+      }
+    }
+    document.getElementById('retestPrompt').textContent = retestText;
+
+    // 【彩蛋】极端得分、答题时长时的幽默备注，保持克制与专业感
+    const EXTREME_TF = 14;  // T/F 轴满分约 ±20，14+ 视为极端
+    const LOW_FUNC_THRESHOLD = 2;  // 某功能得分 ≤2 且为最低时触发
+    const SEC_PER_Q_SHORT = 10;   // 过短：< 10 秒/题，根本不可能看完题目
+    const SEC_PER_Q_LONG = 90;    // 过长：> 90 秒/题，看完后反复思索
+    const easterEggs = [];
+    if (isValid) {
+      if (scores.t_f >= EXTREME_TF) {
+        easterEggs.push('你的理性程度让博弈论学者感动落泪。');
+      } else if (scores.t_f <= -EXTREME_TF) {
+        easterEggs.push('你让冰冷的博弈模型有了温度。');
+      }
+      const funcOrderByScore = Object.entries(funcScores).sort((a, b) => a[1] - b[1]);
+      const [lowestKey, lowestVal] = funcOrderByScore[0];
+      const maxFuncVal = Math.max(...Object.values(funcScores));
+      if (lowestVal <= LOW_FUNC_THRESHOLD && (maxFuncVal - lowestVal) >= 4) {
+        easterEggs.push(`${lowestKey}不是你的优先频道，这很合理。`);
+      }
+      if (elapsedSec > 0 && questionCount > 0) {
+        const secPerQ = elapsedSec / questionCount;
+        if (secPerQ < SEC_PER_Q_SHORT) {
+          easterEggs.push('手速比脑子快系列。');
+        } else if (secPerQ > SEC_PER_Q_LONG) {
+          easterEggs.push('你在认真思考人生，我们认真致敬你的耐心。');
+        }
+      }
+    }
+    document.getElementById('easterEgg').textContent = easterEggs.join('\n');
+
+    // 【反馈】收集用户反馈，存 localStorage 供后续优化
+    const FEEDBACK_KEY = 'mbti_test_feedback';
+    const overlay = document.getElementById('feedbackOverlay');
+    const feedbackForm = document.getElementById('feedbackForm');
+    const feedbackThank = document.getElementById('feedbackThank');
+    let selectedMatch = null;
+
+    document.getElementById('feedbackBtn').addEventListener('click', () => {
+      overlay.classList.remove('hidden');
+      selectedMatch = null;
+      document.querySelectorAll('.feedback-modal .btn-opt[data-match]').forEach(b => b.classList.remove('selected'));
+      document.getElementById('feedbackSurprise').value = '';
+      feedbackForm.classList.remove('hidden');
+      feedbackThank.classList.add('hidden');
+    });
+
+    overlay.querySelectorAll('.btn-opt[data-match]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedMatch = btn.dataset.match;
+        overlay.querySelectorAll('.btn-opt[data-match]').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+
+    document.getElementById('feedbackCancel').addEventListener('click', () => overlay.classList.add('hidden'));
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.add('hidden');
+    });
+
+    document.getElementById('feedbackSubmit').addEventListener('click', () => {
+      if (!selectedMatch) return;
+      const surprise = document.getElementById('feedbackSurprise').value.trim();
+      const payload = {
+        mbti: isValid ? mbti : null,
+        match: selectedMatch,
+        surprise: surprise || undefined,
+        ts: Date.now()
+      };
+      try {
+        const list = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
+        list.push(payload);
+        localStorage.setItem(FEEDBACK_KEY, JSON.stringify(list));
+      } catch (_) {}
+      feedbackForm.classList.add('hidden');
+      feedbackThank.classList.remove('hidden');
+      setTimeout(() => overlay.classList.add('hidden'), 1500);
+    });
+
+    // 【结果对比】展示 T-F 变化、策略偏好变化
+    const compareOverlay = document.getElementById('compareOverlay');
+    const dimLabels = { e_i: 'E-I', s_n: 'S-N', t_f: 'T-F', j_p: 'J-P' };
+    document.getElementById('compareBtn').addEventListener('click', () => {
+      if (!prevResult) return;
+      const p = prevResult;
+      const tFPrev = p.t_f != null ? p.t_f : 0;
+      const tFCur = scores.t_f || 0;
+      const tfDir = tFCur > tFPrev ? '（更偏策略）' : tFCur < tFPrev ? '（更偏价值）' : '';
+      let html = '';
+      html += `<div class="compare-row"><span class="label">T-F 得分</span><span>上次 ${tFPrev > 0 ? '+' : ''}${tFPrev} → 本次 ${tFCur > 0 ? '+' : ''}${tFCur} ${tfDir}</span></div>`;
+      html += `<div class="compare-row"><span class="label">人格类型</span><span>${p.mbti} → ${mbti}</span></div>`;
+      dims.forEach(d => {
+        const vPrev = p[d.key] != null ? p[d.key] : 0;
+        const vCur = scores[d.key] || 0;
+        if (vPrev !== vCur) {
+          html += `<div class="compare-row"><span class="label">${dimLabels[d.key]}</span><span>${vPrev > 0 ? '+' : ''}${vPrev} → ${vCur > 0 ? '+' : ''}${vCur}</span></div>`;
+        }
+      });
+      document.getElementById('compareContent').innerHTML = html;
+      compareOverlay.classList.remove('hidden');
+    });
+    document.getElementById('compareClose').addEventListener('click', () => compareOverlay.classList.add('hidden'));
+    compareOverlay.addEventListener('click', (e) => { if (e.target === compareOverlay) compareOverlay.classList.add('hidden'); });
+
+    // 【入场动画】延迟一帧后触发淡入，避免过渡后突兀弹出
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById('resultMain').classList.add('result-visible');
+      });
+    });
+  </script>
+
+</body>
+</html>

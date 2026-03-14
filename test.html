@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试中 | 博弈论 × MBTI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    /* 【完成过渡】淡入淡出、进度条填充（先快后慢）、文字呼吸闪烁 */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes progressExpand { from { width: 0%; } to { width: 100%; } }
+    @keyframes breath { 0%, 100% { opacity: 0.88; } 50% { opacity: 1; } }
+    .completion-enter { animation: fadeIn 0.4s ease-out forwards; }
+    .completion-leave { animation: fadeOut 0.4s ease-out forwards; }
+    .completion-progress { animation: progressExpand 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    .completion-text-breath { animation: breath 2s ease-in-out infinite; }
+    /* 【选项四字词】视觉强化与引导 — 方案一：色彩降级，暗金/姜黄减轻眩光 */
+    .option-label { font-weight: 600; color: #D4AF37; border-left: 2px solid #B8860B; padding-left: 0.5rem; margin-right: 0.25rem; }
+    /* 【题目切换】淡入淡出 + 轻微右→左滑动，0.25s */
+    .question-content { transition: opacity 0.25s ease-out, transform 0.25s ease-out; }
+    .question-content.question-leave { opacity: 0; transform: translateX(12px); }
+    .question-content.question-enter { opacity: 0; transform: translateX(12px); }
+    .question-content.question-enter.question-visible { opacity: 1; transform: translateX(0); }
+    /* 【测试页首屏】淡入 0.4s */
+    .test-enter { animation: fadeIn 0.4s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
+
+  <!-- ==================== 【测试界面容器】加载完成后显示，完成最后一题时隐藏 ==================== -->
+  <div id="testInterface" class="hidden">
+  <!-- 【指导语】降低社会赞许性偏差，消除「正确答案」顾虑 -->
+  <div class="border-b border-gray-800 px-4 py-3 text-center">
+    <p class="text-gray-400 text-xs">所有选择无对错之分，只反映你在特定情境下的真实偏好。请凭第一感觉作答。</p>
+  </div>
+  <!-- 【顶部进度条】显示当前题目进度 + 阶段性文案 -->
+  <header class="sticky top-0 z-10 bg-gray-950/95 backdrop-blur border-b border-gray-800">
+    <div class="max-w-2xl mx-auto px-4 py-4">
+      <!-- 【进度】数字 + 阶段性文案 合并一行 -->
+      <p id="progressLine" class="text-gray-400 text-xs mb-2">1/24 · 正在收集你的决策偏好…</p>
+      <!-- 【进度条轨道】灰色背景 + 白色填充 -->
+      <div class="h-0.5 w-full bg-gray-800 rounded-full overflow-hidden">
+        <div 
+          id="progressBar" 
+          class="h-full bg-gray-400 transition-all duration-300 ease-out"
+          style="width: 5%;"
+        ></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 【主内容区】单题展示（含切换过渡） ==================== -->
+  <main class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+    <div id="questionContent" class="question-content">
+      <!-- 【题目标题】博弈论模型名称 -->
+      <h2 id="questionTitle" class="text-lg sm:text-xl font-medium text-white mb-4">
+        <!-- 由 JS 动态填充 -->
+      </h2>
+
+      <!-- 【情境描述】博弈场景说明 -->
+      <div class="mb-8">
+        <p id="questionScenario" class="text-gray-400 text-sm sm:text-base leading-relaxed">
+          <!-- 由 JS 动态填充 -->
+        </p>
+      </div>
+
+      <!-- 【选项列表】两个或多个选项按钮 -->
+      <div id="optionsContainer" class="space-y-3">
+        <!-- 由 JS 动态生成选项按钮 -->
+      </div>
+    </div>
+  </main>
+  </div>
+
+  <!-- ==================== 【加载态】题库加载中显示 ==================== -->
+  <div id="loadingOverlay" class="fixed inset-0 z-30 bg-gray-950 flex flex-col items-center justify-center px-4">
+    <p class="text-gray-400 text-sm mb-4">加载题库中...</p>
+    <div class="w-8 h-8 border-2 border-gray-600 border-t-gray-300 rounded-full animate-spin"></div>
+  </div>
+
+  <!-- ==================== 【完成过渡】答完最后一题后短暂展示，提示测试已结束 ==================== -->
+  <div id="completionOverlay" class="hidden fixed inset-0 z-20 bg-gray-950 flex flex-col items-center justify-center px-4">
+    <p class="completion-text-breath text-gray-400 text-lg mb-2">测试完成</p>
+    <p class="completion-text-breath text-gray-400 text-sm mb-8">正在分析你的博弈选择...</p>
+    <div class="w-48 h-0.5 bg-gray-800 rounded-full overflow-hidden">
+      <div class="completion-progress h-full bg-gray-500 rounded-full"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 【脚本】数据、逻辑与交互 ==================== -->
+  <script>
+    // ========== 【状态管理】功能级计分：记录八种认知功能的使用倾向
+    // Te=外倾思考 Ti=内倾思考 Fe=外倾情感 Fi=内倾情感
+    // Ne=外倾直觉 Ni=内倾直觉 Se=外倾实感 Si=内倾实感
+    let userFunctions = {
+      Te: 0, Ti: 0, Fe: 0, Fi: 0, Ne: 0, Ni: 0, Se: 0, Si: 0
+    };
+
+    // 【当前题目索引】从 0 开始，用于 gameQuestions 数组下标
+    let currentQuestionIndex = 0;
+
+    // 【答题计时】首题展示时开始，结果页用于彩蛋
+    let testStartTime = null;
+
+    // 【题库】从独立文件加载，便于维护与动态题库
+    let gameQuestions = [];
+    let funcWeights = {};
+
+    // ========== 【URL 解析】?mode=quick → 极速版；否则 → 深度版
+    function parseTestParams() {
+      const params = new URLSearchParams(window.location.search);
+      return { isQuick: params.get('mode') === 'quick' };
+    }
+
+    // ========== 【随机匹配最优题组】极速版从 15–18 各数量最高准确率题组随机选一；深度版从 25–30 随机选一；仅初始洗牌
+    function pickQuestionSet(allQuestions, config, isQuick) {
+      const idToQ = {};
+      allQuestions.forEach(q => { idToQ[q.id] = q; });
+      let ids = [];
+      if (isQuick) {
+        const quickSets = config.quickSets || {};
+        const quickCounts = config.quickCounts || [15, 16, 17, 18];
+        const available = quickCounts.filter(n => quickSets[String(n)]).map(String);
+        const pick = available[Math.floor(Math.random() * available.length)];
+        ids = quickSets[pick] || [];
+      } else {
+        const accuSets = config.accuSets || {};
+        const accuCounts = config.accuCounts || [25, 26, 27, 28, 29, 30];
+        const available = accuCounts.filter(n => accuSets[String(n)]).map(String);
+        const pick = available[Math.floor(Math.random() * available.length)];
+        ids = accuSets[pick] || [];
+      }
+      if (ids.length === 0) ids = allQuestions.map(q => q.id);
+      const idSet = new Set(ids);
+      const subset = allQuestions.filter(q => idSet.has(q.id));
+      for (let i = subset.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [subset[i], subset[j]] = [subset[j], subset[i]];
+      }
+      return subset;
+    }
+
+    // ========== 【题库加载】从 questions.json 获取
+    function initWithQuestions(data) {
+      const config = data.config || {};
+      const allQuestions = Array.isArray(data) ? data : (data.questions || []);
+      const { isQuick } = parseTestParams();
+      gameQuestions = pickQuestionSet(allQuestions, config, isQuick);
+      const funcCounts = { Te: 0, Ti: 0, Fe: 0, Fi: 0, Ne: 0, Ni: 0, Se: 0, Si: 0 };
+      gameQuestions.forEach(q => {
+        (q.options || []).forEach(opt => {
+          const imp = opt.scoreImpact || {};
+          Object.keys(imp).forEach(f => {
+            if (funcCounts.hasOwnProperty(f)) funcCounts[f] += imp[f] || 0;
+          });
+        });
+      });
+      const maxCount = Math.max(1, ...Object.values(funcCounts));
+      Object.keys(funcCounts).forEach(f => {
+        funcWeights[f] = funcCounts[f] > 0 ? maxCount / funcCounts[f] : 1;
+      });
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      const testEl = document.getElementById('testInterface');
+      testEl.classList.remove('hidden');
+      testEl.classList.add('test-enter');
+      testStartTime = Date.now();
+      renderCurrentQuestion(true);
+    }
+
+    /**
+     * 【核心函数】根据 userScores 更新当前题目展示
+     * @param {boolean} skipTransition - 首次加载为 true，跳过切换动画
+     */
+    function renderCurrentQuestion(skipTransition) {
+      const question = gameQuestions[currentQuestionIndex];
+      if (!question) {
+        // 【拦截逻辑】题目耗尽：隐藏测试界面 → 展示完成过渡 → 延迟后展示结果页
+        document.getElementById('testInterface').classList.add('hidden');
+        const overlay = document.getElementById('completionOverlay');
+        const progressBar = overlay.querySelector('.completion-progress');
+        // 重置进度条动画，确保重新测试后再次完成时能正常播放
+        progressBar.classList.remove('completion-progress');
+        progressBar.offsetHeight;
+        progressBar.classList.add('completion-progress');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('completion-enter');
+
+        // 【延迟 2 秒】留出时间让用户感知测试已结束，并观看加载条（1.5–2.5s 区间）
+        setTimeout(() => {
+          overlay.classList.remove('completion-enter');
+          overlay.classList.add('completion-leave');
+          setTimeout(() => {
+            // 【跳转结果页】通过 URL 传递 MBTI 与各维度分数，供蛛网图与深度分析使用
+            const mbti = calculateMBTI();
+            const d = functionsToDimensions();
+            const f = userFunctions;
+            const elapsedSec = testStartTime ? Math.round((Date.now() - testStartTime) / 1000) : 0;
+            const questionCount = gameQuestions.length;
+            const q = new URLSearchParams({
+              mbti, e_i: Math.round(d.e_i), s_n: Math.round(d.s_n), t_f: Math.round(d.t_f), j_p: Math.round(d.j_p),
+              Te: Math.round(f.Te), Ti: Math.round(f.Ti), Fe: Math.round(f.Fe), Fi: Math.round(f.Fi),
+              Ne: Math.round(f.Ne), Ni: Math.round(f.Ni), Se: Math.round(f.Se), Si: Math.round(f.Si)
+            });
+            if (elapsedSec > 0) { q.set('t', String(elapsedSec)); q.set('n', String(questionCount)); }
+            window.location.href = 'result.html?' + q.toString();
+          }, 420);
+        }, 2000);
+        return;
+      }
+
+      const doUpdate = () => {
+        const totalQuestions = gameQuestions.length;
+        const currentNum = currentQuestionIndex + 1;
+        const progressPercent = (currentNum / totalQuestions) * 100;
+        const ratio = currentNum / totalQuestions;
+        let stageText = '正在收集你的决策偏好…';
+        if (ratio > 7/8) stageText = '快要完成对你的策略画像分析…';
+        else if (ratio > 1/2) stageText = '模式正在浮现…';
+        document.getElementById('progressLine').textContent = `${currentNum}/${totalQuestions} · ${stageText}`;
+        document.getElementById('progressBar').style.width = `${progressPercent}%`;
+        document.getElementById('questionTitle').textContent = question.title;
+        document.getElementById('questionScenario').textContent = question.scenario;
+
+        const container = document.getElementById('optionsContainer');
+        container.innerHTML = '';
+        const formatOption = (text) => {
+          const m = text.match(/^(.+)（([^）]+)）$/);
+          return m ? '「' + m[2] + '」' + m[1] : text;
+        };
+        const shuffleOptions = (arr) => {
+          const a = arr.slice();
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        };
+        shuffleOptions(question.options).forEach((option) => {
+          const formatted = formatOption(option.text);
+          const labelMatch = formatted.match(/^「([^」]+)」(.*)$/);
+          const btn = document.createElement('button');
+          btn.className = 'w-full text-left px-4 py-3 border border-gray-700 text-gray-300 hover:border-gray-500 hover:bg-white/5 active:border-gray-400 active:bg-white/10 transition-colors duration-200 text-sm';
+          if (labelMatch) {
+            btn.innerHTML = '<span class="option-label">' + labelMatch[1] + '</span>' + labelMatch[2];
+          } else {
+            btn.textContent = formatted;
+          }
+          btn.addEventListener('click', () => {
+            applyScoreImpact(option.scoreImpact);
+            currentQuestionIndex++;
+            renderCurrentQuestion(false);
+          });
+          container.appendChild(btn);
+        });
+      };
+
+      const contentEl = document.getElementById('questionContent');
+      if (skipTransition) {
+        doUpdate();
+      } else {
+        contentEl.classList.add('question-leave');
+        setTimeout(() => {
+          contentEl.classList.remove('question-leave');
+          doUpdate();
+          contentEl.classList.add('question-enter');
+          requestAnimationFrame(() => contentEl.classList.add('question-visible'));
+          setTimeout(() => {
+            contentEl.classList.remove('question-enter', 'question-visible');
+          }, 260);
+        }, 260);
+      }
+    }
+
+    /**
+     * 【算分函数】将选项的 scoreImpact 累加到 userFunctions
+     * @param {Object} impact - 功能级：{ Te, Ti, Fe, Fi, Ne, Ni, Se, Si } 或兼容旧版 { e_i, s_n, t_f, j_p }
+     */
+    function applyScoreImpact(impact) {
+      if (!impact) return;
+      const funcs = ['Te', 'Ti', 'Fe', 'Fi', 'Ne', 'Ni', 'Se', 'Si'];
+      if (funcs.some(k => impact[k] !== undefined)) {
+        funcs.forEach(k => {
+          const raw = impact[k] || 0;
+          const w = funcWeights[k] || 1;
+          userFunctions[k] += raw * w;
+        });
+      } else {
+        // 兼容旧版维度计分：按公式转为功能后累加
+        const e_i = impact.e_i || 0, s_n = impact.s_n || 0, t_f = impact.t_f || 0, j_p = impact.j_p || 0;
+        userFunctions.Te += e_i/4 + t_f/2 + j_p/4;
+        userFunctions.Ti += -e_i/4 + t_f/2 + j_p/4;
+        userFunctions.Fe += e_i/4 - t_f/2 + j_p/4;
+        userFunctions.Fi += -e_i/4 - t_f/2 + j_p/4;
+        userFunctions.Ne += e_i/4 - s_n/2 - j_p/4;
+        userFunctions.Ni += -e_i/4 - s_n/2 - j_p/4;
+        userFunctions.Se += e_i/4 + s_n/2 - j_p/4;
+        userFunctions.Si += -e_i/4 + s_n/2 - j_p/4;
+      }
+    }
+
+    /**
+     * 【由功能推导维度】用于结果页条形图
+     */
+    function functionsToDimensions() {
+      const f = userFunctions;
+      return {
+        e_i: (f.Te + f.Fe + f.Ne + f.Se) - (f.Ti + f.Fi + f.Ni + f.Si),
+        s_n: (f.Se + f.Si) - (f.Ne + f.Ni),
+        t_f: (f.Te + f.Ti) - (f.Fe + f.Fi),
+        j_p: (f.Te + f.Fe + f.Ti + f.Fi) - (f.Ne + f.Se + f.Ni + f.Si)
+      };
+    }
+
+    /**
+     * 【结算逻辑】根据 userFunctions 计算 4 位 MBTI
+     * 先转为维度再取字母：维度 > 0 取前者（E/S/T/J），否则取后者（I/N/F/P）
+     */
+    function calculateMBTI() {
+      const d = functionsToDimensions();
+      const e = d.e_i > 0 ? 'E' : 'I';
+      const s = d.s_n > 0 ? 'S' : 'N';
+      const t = d.t_f > 0 ? 'T' : 'F';
+      const j = d.j_p > 0 ? 'J' : 'P';
+      return e + s + t + j;
+    }
+
+    // 【页面加载】从 questions.json 加载题库
+    const loadingEl = document.getElementById('loadingOverlay');
+    const questionUrl = new URL('questions.json', window.location.href).href;
+    fetch(questionUrl)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(initWithQuestions)
+      .catch(err => {
+        loadingEl.classList.add('hidden');
+        console.error('题库加载失败:', err);
+        const main = document.getElementById('testInterface');
+        main.classList.remove('hidden');
+        main.innerHTML = '<main class="max-w-2xl mx-auto px-4 py-12"><p class="text-red-400">题库加载失败，请稍后重试。</p></main>';
+      });
+  </script>
+
+</body>
+</html>

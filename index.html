@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>博弈论 × MBTI | 硬核人格测试</title>
+  <!-- 【样式】引入 Tailwind CSS CDN，实现响应式与实用类样式 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- 【字体】使用 JetBrains Mono 等宽字体，营造学术/代码感 -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 【全局】强制等宽字体，黑白灰主色调 */
+    body { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    /* 【首页淡出】进入测试前的过渡 */
+    #indexContent { transition: opacity 0.35s ease-out; }
+    #indexContent.index-leave { opacity: 0; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
+  
+  <!-- ==================== 【主容器】首页居中布局 ==================== -->
+  <main id="indexContent" class="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
+    
+    <!-- 【卡片容器】PC 端大屏下显示微弱边框与内边距，移动端透明无边框 -->
+    <div class="w-full max-w-2xl md:border md:border-gray-800 md:rounded-sm md:px-10 md:py-12">
+    
+    <!-- 【标题区】项目主标题 -->
+    <header class="text-center mb-12">
+      <h1 class="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-white mb-2">
+        博弈论 × MBTI
+      </h1>
+      <p class="text-gray-400 text-sm sm:text-base">
+        硬核人格测试
+      </p>
+    </header>
+
+    <!-- 【介绍区】产品理念与痛点说明：左对齐，首行缩进两格 -->
+    <section class="space-y-6 text-gray-400 text-sm sm:text-base leading-relaxed text-left">
+      <p class="indent-[2em]">
+        传统 MBTI 依赖主观自评，易受自我美化影响。本测试引入 
+        <span class="text-gray-300">41 个经典博弈论模型</span>，通过你在极端理性场景下的真实选择，推导更客观的人格类型。
+      </p>
+      <p class="indent-[2em]">
+        博弈论描述纳什均衡下的「理性选择」——追求个人利益最大化的策略。现实中，大多数人会偏离。你偏离的方向，正是你独特人格的投射。
+      </p>
+      <hr class="border-gray-800" />
+      <p class="text-gray-400 text-xs text-center mb-4">
+        根据你的时间选择测试模式
+      </p>
+    </section>
+
+    <!-- 【入口按钮】极速版 / 深度版 两种模式，视觉权重对等，点击后淡出再跳转 -->
+    <section class="mt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <a 
+        href="test.html?mode=quick" 
+        id="btnQuick"
+        class="w-full sm:w-auto inline-block px-8 py-3 border border-gray-500 text-gray-200 bg-gray-800/80 hover:bg-gray-700/80 hover:border-gray-400 active:scale-95 transition-all duration-150 text-sm font-medium tracking-wide select-none text-center"
+      >
+        极速版 · 15–18 题 · 约 5 分钟
+      </a>
+      <a 
+        href="test.html" 
+        id="btnDeep"
+        class="w-full sm:w-auto inline-block px-8 py-3 border border-gray-500 text-gray-200 bg-gray-800/80 hover:bg-gray-700/80 hover:border-gray-400 active:scale-95 transition-all duration-150 text-sm font-medium tracking-wide select-none text-center"
+      >
+        深度版 · 25–30 题 · 约 10 分钟
+      </a>
+    </section>
+
+    <!-- 【页脚】学术感标识，满足对比度可读性 -->
+    <footer class="mt-16 text-gray-400 text-xs text-center space-y-3">
+      <p>Game Theory × MBTI · 基于行为选择的硬核人格推导</p>
+      <p class="max-w-md mx-auto text-gray-400">本测试非专业心理或人格评估工具，结果仅供娱乐与自我探索，不构成任何临床或职业建议。</p>
+    </footer>
+
+    </div>
+  </main>
+
+  <script>
+    (function() {
+      const content = document.getElementById('indexContent');
+      function navigate(e, url) {
+        e.preventDefault();
+        content.classList.add('index-leave');
+        setTimeout(function() { window.location.href = url; }, 380);
+      }
+      document.getElementById('btnQuick').addEventListener('click', function(e) {
+        navigate(e, 'test.html?mode=quick');
+      });
+      document.getElementById('btnDeep').addEventListener('click', function(e) {
+        navigate(e, 'test.html');
+      });
+    })();
+  </script>
+</body>
+</html>
